@@ -14,22 +14,30 @@
 
 package lsh4s
 
+import java.io.File
+import scala.pickling.Pickler
 import scala.pickling.Defaults._
 import scala.pickling.binary._
-import better.files._
+import scala.pickling.io.TextFileOutput
 import breeze.linalg._
 import scala.util.Random
 
 // how to make it picklible: https://gitter.im/scala/pickling?at=566b2c826a17cd3b36dc85d8
 case class LSH(hashes: Seq[Hash]) {
+  def save(path: String) = {
+    implicit val p: Pickler[Map[String, Seq[Long]]] = Pickler.generate[Map[String, Seq[Long]]]
 
+    val fileOut = new TextFileOutput(new File(path))
+    this.pickleTo(fileOut)
+    fileOut.close()
+  }
 }
 
 case class Hash(
   randomVectors: Seq[Seq[Double]],
   sectionSize: Double,
   randomShift: Double,
-  buckets: Map[Seq[Int], Seq[Long]]
+  buckets: Map[String, Seq[Long]]
 )
 
 object LSH {
@@ -52,7 +60,7 @@ object LSH {
       val sectionSize = if(hashes.isEmpty) 0.5 else hashes.last.sectionSize * 0.5
       val randomShift = Random.nextDouble * sectionSize
       val allBuckets = vectors.mapValues { v =>
-        randomVectors.map(r => (((v dot r) + randomShift) / sectionSize).floor.toInt)
+        randomVectors.map(r => (((v dot r) + randomShift) / sectionSize).floor.toInt).mkString(",")
       }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
       val smallBuckets = allBuckets.filter(_._2.size <= 10000)
       val largeBucketVectors = allBuckets.filter(_._2.size > 10000).values.flatten.toSet
