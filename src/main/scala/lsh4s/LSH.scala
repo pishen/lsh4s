@@ -31,7 +31,7 @@ class LSH(inputPath: String) {
   val levelGroups = NamedDB(name).readOnly { implicit session =>
     sql"SELECT * FROM LEVEL_INFO".map { r =>
       (
-        r.int("GROUP"),
+        r.int("GROUP_ID"),
         r.int("LEVEL"),
         r.string("RANDOM_VECTORS").split("|").map(_.split(",").map(_.toDouble)).map(DenseVector.apply).toSeq,
         r.double("RANDOM_SHIFT")
@@ -46,7 +46,7 @@ class LSH(inputPath: String) {
         levelGroup.zipWithIndex.flatMap { case ((randomVectors, randomShift), i) =>
           val sectionSize = math.pow(0.5, i + 1.0)
           val hashStr = randomVectors.map(r => (((v dot r) + randomShift) / sectionSize).floor.toInt).mkString(",")
-          sql"SELECT VECTOR_IDS FROM BUCKETS WHERE HASH=${hashStr} AND GROUP=${groupId} AND LEVEL=${i}"
+          sql"SELECT VECTOR_IDS FROM BUCKETS WHERE HASH=${hashStr} AND GROUP_ID=${groupId} AND LEVEL=${i}"
             .map(r => r.string("VECTOR_IDS").split(",").map(_.toLong).toSeq)
             .single.apply().getOrElse(Seq.empty)
         }
@@ -89,14 +89,14 @@ object LSH extends Logging {
             )
          """.execute.apply()
       sql"""CREATE TABLE LEVEL_INFO (
-              GROUP INT,
+              GROUP_ID INT,
               LEVEL INT,
               RANDOM_VECTORS VARCHAR,
               RANDOM_SHIFT DOUBLE
             )
          """.execute.apply()
       sql"""CREATE TABLE BUCKETS (
-              GROUP INT,
+              GROUP_ID INT,
               LEVEL INT,
               HASH VARCHAR,
               VECTOR_IDS VARCHAR
