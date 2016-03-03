@@ -158,8 +158,6 @@ object LSH extends Logging {
       levelHash(groupId, 0, vectors, 0.5)
     }
     
-    ConnectionPool.close(name)
-    
     new LSH(outputPath)
   }
   
