@@ -15,9 +15,11 @@
 package lsh4s
 
 import breeze.linalg._
+import org.slf4s.Logging
 import scalikejdbc._
 import scala.util.Random
 import java.io.File
+import java.util.Date
 import scala.io.Source
 
 class LSH(inputPath: String) {
@@ -68,14 +70,14 @@ class LSH(inputPath: String) {
   }
 }
 
-object LSH {
+object LSH extends Logging {
   Class.forName("org.h2.Driver")
   
   def hash(
-    vectors: Map[Long, DenseVector[Double]],
+    inputVectors: Map[Long, Seq[Double]],
     outputPath: String,
-    numOfHashGroups: Int = 5,
-    maxLevel: Int = 10
+    numOfHashGroups: Int,
+    maxLevel: Int
   ): LSH = {
     val name = new File(outputPath).getName
     ConnectionPool.add(name, s"jdbc:h2:$outputPath", "sa", "")
@@ -103,6 +105,9 @@ object LSH {
       sql"CREATE INDEX HASH_IDX ON BUCKETS(HASH)".execute.apply()
     }
     
+    val vectors = inputVectors.mapValues(s => DenseVector(s.toArray))
+    
+    println("inserting vectors " + new Date())
     NamedDB(name).autoCommit { implicit session =>
       val rows = vectors.toSeq.map { case (id, vector) => Seq.apply[Any](id, vector.data.mkString(",")) }
       sql"INSERT INTO VECTORS VALUES (?, ?)".batch(rows: _*).apply()
@@ -111,10 +116,11 @@ object LSH {
     val dimension = vectors.values.head.size
     val numOfRandomVectors = dimension
     
+    println("scaling vectors " + new Date())
     val scaledVectors = {
       val wrappedVectors = vectors.mapValues(v => DenseVector(v.toArray))
-      val scale = 1.0 / wrappedVectors.values.map(v => norm(v)).max
-      wrappedVectors.mapValues(_ * scale)
+      val scale = 1.0 / wrappedVectors.values.par.map(v => norm(v)).max
+      wrappedVectors.par.mapValues(_ * scale).seq
     }
     
     def levelHash(groupId: Int, level: Int, vectors: Map[Long, DenseVector[Double]], sectionSize: Double): Unit = {
@@ -126,12 +132,14 @@ object LSH {
         sql"INSERT INTO LEVEL_INFO VALUES (${groupId}, ${level}, ${randomVectorsStr}, ${randomShift})".update.apply()
       }
       
-      val allBuckets = vectors.mapValues { v =>
+      println(s"hashing group $groupId level $level " + new Date())
+      val allBuckets = vectors.par.mapValues { v =>
         randomVectors.map(r => (((v dot r) + randomShift) / sectionSize).floor.toInt).mkString(",")
-      }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
+      }.toSeq.groupBy(_._2).mapValues(_.map(_._1)).seq
       
       val smallBuckets = allBuckets.filter(_._2.size <= 5000 || level == maxLevel)
       
+      println("inserting result " + new Date())
       NamedDB(name).autoCommit { implicit session =>
         val rows = smallBuckets.toSeq.map {
           case (h, vectorIds) => Seq.apply[Any](groupId, level, h, vectorIds.mkString(","))
@@ -155,15 +163,18 @@ object LSH {
     new LSH(outputPath)
   }
   
-  def hash(vectors: Map[Long, Seq[Double]], outputPath: String): LSH = hash(vectors.mapValues(s => DenseVector(s.toArray)), outputPath)
-  
-  def hash(filename: String, outputPath: String): LSH = {
+  def hash(
+    filename: String,
+    outputPath: String,
+    numOfHashGroups: Int,
+    maxLevel: Int
+  ): LSH = {
     val vectors = Source.fromFile(filename).getLines.map(_.split(" ")).map { arr =>
       val id = arr.head.toLong
       val vector = arr.tail.map(_.toDouble).toSeq
       id -> vector
     }.toMap
-    hash(vectors, outputPath)
+    hash(vectors, outputPath, numOfHashGroups, maxLevel)
   }
   
   def readLSH(inputPath: String) = new LSH(inputPath)
