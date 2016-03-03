@@ -109,7 +109,7 @@ object LSH extends Logging {
     
     println("inserting vectors " + new Date())
     NamedDB(name).autoCommit { implicit session =>
-      val rows = vectors.toSeq.map { case (id, vector) => Seq.apply[Any](id, vector.data.mkString(",")) }
+      val rows = vectors.toSeq.par.map { case (id, vector) => Seq.apply[Any](id, vector.data.mkString(",")) }.seq
       sql"INSERT INTO VECTORS VALUES (?, ?)".batch(rows: _*).apply()
     }
   
@@ -118,9 +118,9 @@ object LSH extends Logging {
     
     println("scaling vectors " + new Date())
     val scaledVectors = {
-      val wrappedVectors = vectors.mapValues(v => DenseVector(v.toArray))
-      val scale = 1.0 / wrappedVectors.values.par.map(v => norm(v)).max
-      wrappedVectors.par.mapValues(_ * scale).seq
+      val wrappedVectors = vectors.par.mapValues(v => DenseVector(v.toArray))
+      val scale = 1.0 / wrappedVectors.values.map(v => norm(v)).max
+      wrappedVectors.mapValues(_ * scale).seq
     }
     
     def levelHash(groupId: Int, level: Int, vectors: Map[Long, DenseVector[Double]], sectionSize: Double): Unit = {
@@ -135,7 +135,7 @@ object LSH extends Logging {
       println(s"hashing group $groupId level $level " + new Date())
       val allBuckets = vectors.par.mapValues { v =>
         randomVectors.map(r => (((v dot r) + randomShift) / sectionSize).floor.toInt).mkString(",")
-      }.toSeq.groupBy(_._2).mapValues(_.map(_._1)).seq
+      }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
       
       val smallBuckets = allBuckets.filter(_._2.size <= 5000 || level == maxLevel)
       
@@ -143,13 +143,13 @@ object LSH extends Logging {
       NamedDB(name).autoCommit { implicit session =>
         val rows = smallBuckets.toSeq.map {
           case (h, vectorIds) => Seq.apply[Any](groupId, level, h, vectorIds.mkString(","))
-        }
+        }.seq
         sql"INSERT INTO BUCKETS VALUES (?, ?, ?, ?)".batch(rows: _*).apply()
       }
       
       val remainVectors = {
         val largeBucketVectorIds = allBuckets.filter(_._2.size > 5000).values.flatten.toSet
-        vectors.filterKeys(largeBucketVectorIds.contains)
+        vectors.par.filterKeys(largeBucketVectorIds.contains).seq.toMap
       }
       if(remainVectors.nonEmpty) levelHash(groupId, level + 1, remainVectors, sectionSize * 0.5)
     }
