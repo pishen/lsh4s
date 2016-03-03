@@ -33,7 +33,7 @@ class LSH(inputPath: String) {
       (
         r.int("GROUP_ID"),
         r.int("LEVEL"),
-        r.string("RANDOM_VECTORS").split("|").map(_.split(",").map(_.toDouble)).map(DenseVector.apply).toSeq,
+        r.string("RANDOM_VECTORS").split("#").map(_.split(",").map(_.toDouble)).map(DenseVector.apply).toSeq,
         r.double("RANDOM_SHIFT")
       )
     }.list.apply().toSeq.groupBy(_._1).mapValues(_.sortBy(_._2).map(t => t._3 -> t._4)).toSeq
@@ -128,7 +128,7 @@ object LSH extends Logging {
       val randomShift = Random.nextDouble * sectionSize
       
       NamedDB(name).autoCommit { implicit session =>
-        val randomVectorsStr = randomVectors.map(_.data.mkString(",")).mkString("|")
+        val randomVectorsStr = randomVectors.map(_.data.mkString(",")).mkString("#")
         sql"INSERT INTO LEVEL_INFO VALUES (${groupId}, ${level}, ${randomVectorsStr}, ${randomShift})".update.apply()
       }
       
