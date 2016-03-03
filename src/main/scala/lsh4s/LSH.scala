@@ -52,7 +52,7 @@ class LSH(inputPath: String) {
         }
       }.distinct
       
-      sql"SELECT * FROM VECTORS WHERE ID IN ${candidates}"
+      sql"SELECT * FROM VECTORS WHERE ID IN (${candidates})"
         .map(r => r.long("ID") -> DenseVector(r.string("VECTOR").split(",").map(_.toDouble))).list.apply()
         .sortBy { case (id, t) => norm(t - v) }
         .map(_._1)
