@@ -111,7 +111,7 @@ object LSH extends Logging {
     }
     
     log.info("inserting vectors")
-    NamedDB(name).localTx { implicit session =>
+    NamedDB(name).autoCommit { implicit session =>
       val rows = vectors.toSeq.par.map { case (id, vector) => Seq.apply[Any](id, vector.data.mkString(",")) }.seq
       sql"INSERT INTO VECTORS VALUES (?, ?)".batch(rows: _*).apply()
     }
@@ -141,7 +141,7 @@ object LSH extends Logging {
       val smallBuckets = allBuckets.filter(_._2.size <= 10000 || level == maxLevel)
       
       log.info("inserting result")
-      NamedDB(name).localTx { implicit session =>
+      NamedDB(name).autoCommit { implicit session =>
         val rows = smallBuckets.toSeq.map {
           case (h, vectorIds) => Seq.apply[Any](groupId, level, h, vectorIds.mkString(","))
         }.seq
