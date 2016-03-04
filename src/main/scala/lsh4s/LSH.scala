@@ -139,7 +139,7 @@ object LSH extends Logging {
       }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
       
       val smallBuckets = allBuckets.filter(_._2.size <= 10000 || level == maxLevel)
-      log.info(s"# of buckets: ${smallBuckets.size}, largest bucket: ${smallBuckets}")
+      log.info(s"# of buckets: ${smallBuckets.size}, largest bucket: ${smallBuckets.values.map(_.size).max}")
       
       log.info("inserting result")
       NamedDB(name).autoCommit { implicit session =>
