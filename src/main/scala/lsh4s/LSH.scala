@@ -14,68 +14,119 @@
 
 package lsh4s
 
-import java.io.File
+import java.io.{ File, FileOutputStream }
 import scala.pickling.Pickler
 import scala.pickling.Defaults._
 import scala.pickling.binary._
-import scala.pickling.io.TextFileOutput
 import breeze.linalg._
 import scala.util.Random
+import org.slf4s.Logging
+import scala.io.Source
 
 // how to make it picklible: https://gitter.im/scala/pickling?at=566b2c826a17cd3b36dc85d8
-case class LSH(hashes: Seq[Hash]) {
+case class LSH(vectors: Map[Long, Seq[Double]], hashGroups: Seq[Seq[Hash]]) {
   def save(path: String) = {
-    implicit val p: Pickler[Map[String, Seq[Long]]] = Pickler.generate[Map[String, Seq[Long]]]
-
-    val fileOut = new TextFileOutput(new File(path))
-    this.pickleTo(fileOut)
-    fileOut.close()
+    //implicit val p: Pickler[Map[String, Seq[Long]]] = Pickler.generate[Map[String, Seq[Long]]]
+    val fo = new FileOutputStream(path)
+    val so = new StreamOutput(fo)
+    this.pickleTo(so)
+    fo.close()
+  }
+  
+  def query(vector: Seq[Double], maxReturnSize: Int) = {
+    val v = DenseVector(vector.toArray)
+    hashGroups.flatMap { hashGroup =>
+      hashGroup.zipWithIndex.flatMap { case (hash, i) =>
+        val sectionSize = math.pow(0.5, i + 1.0)
+        val hashStr = hash.randomVectors.map { r =>
+          (((v dot DenseVector(r.toArray)) + hash.randomShift) / sectionSize).floor.toInt
+        }.mkString(",")
+        hash.buckets.get(hashStr).getOrElse(Seq.empty)
+      }
+    }.distinct.map { id =>
+      val t = DenseVector(vectors(id).toArray)
+      id -> norm(t - v)
+    }.sortBy(_._2).map(_._1).take(maxReturnSize).toSeq
+  }
+  
+  def query(id: Long, maxReturnSize: Int): Seq[Long] = {
+    query(vectors(id), maxReturnSize)
   }
 }
 
 case class Hash(
   randomVectors: Seq[Seq[Double]],
-  sectionSize: Double,
   randomShift: Double,
   buckets: Map[String, Seq[Long]]
 )
 
-object LSH {
+object LSH extends Logging {
   def hash(
-    vectors: Map[Long, Seq[Double]],
-    numOfRandomVectors: Int,
-    numOfLevels: Int
+    inputVectors: Map[Long, Seq[Double]],
+    numOfHashGroups: Int,
+    maxLevel: Int,
+    bucketThreshold: Int
   ): LSH = {
-    val dimension = vectors.values.head.size
-    require(numOfRandomVectors > 0 && numOfLevels > 0 && dimension > 0)
-    
-    val scaledVectors = {
-      val wrappedVectors = vectors.mapValues(v => DenseVector(v.toArray))
+    log.info("scaling vectors")
+    val vectors = {
+      val wrappedVectors = inputVectors.mapValues(v => DenseVector(v.toArray))
       val scale = 1.0 / wrappedVectors.values.map(v => norm(v)).max
       wrappedVectors.mapValues(_ * scale)
     }
+  
+    val dimension = vectors.values.head.size
     
-    def levelHash(hashes: Seq[Hash], vectors: Map[Long, DenseVector[Double]]): Seq[Hash] = {
+    def levelHash(
+      hashes: Seq[Hash],
+      groupId: Int,
+      level: Int,
+      numOfRandomVectors: Int,
+      vectors: Map[Long, DenseVector[Double]],
+      sectionSize: Double
+    ): Seq[Hash] = {
       val randomVectors = Seq.fill(numOfRandomVectors)(DenseVector.fill(dimension)(Random.nextDouble))
-      val sectionSize = if(hashes.isEmpty) 0.5 else hashes.last.sectionSize * 0.5
       val randomShift = Random.nextDouble * sectionSize
-      val allBuckets = vectors.mapValues { v =>
+      
+      log.info(s"hashing group $groupId level $level")
+      val allBuckets = vectors.par.mapValues { v =>
         randomVectors.map(r => (((v dot r) + randomShift) / sectionSize).floor.toInt).mkString(",")
-      }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
-      val smallBuckets = allBuckets.filter(_._2.size <= 10000)
-      val largeBucketVectors = allBuckets.filter(_._2.size > 10000).values.flatten.toSet
-      val newHashes = hashes :+ Hash(randomVectors.map(_.data.toSeq), sectionSize, randomShift, smallBuckets)
-      val remainVectors = vectors.filterKeys(largeBucketVectors.contains)
-      if(remainVectors.isEmpty) newHashes else levelHash(newHashes, remainVectors)
+      }.toSeq.groupBy(_._2).mapValues(_.map(_._1).seq)
+      
+      val smallBuckets = allBuckets.filter(_._2.size <= bucketThreshold || level == maxLevel).seq.toMap
+      log.info(s"# of buckets: ${smallBuckets.size}, largest bucket: ${smallBuckets.values.map(_.size).max}")
+      
+      val hash = Hash(randomVectors.map(_.data.toSeq), randomShift, smallBuckets)
+      
+      val remainVectors = {
+        val largeBucketVectorIds = allBuckets.filter(_._2.size > bucketThreshold).values.flatten.toSet
+        vectors.par.filterKeys(largeBucketVectorIds.contains).seq.toMap
+      }
+      if (remainVectors.nonEmpty) {
+        levelHash(hashes :+ hash, groupId, level + 1, numOfRandomVectors + 2, remainVectors, sectionSize * 0.5)
+      } else {
+        hashes :+ hash
+      }
     }
     
-    levelHash(Seq.empty, scaledVectors)
-    ???
+    val hashGroups = (1 to numOfHashGroups).map { groupId =>
+      levelHash(Seq.empty, groupId, 0, 3, vectors, 0.5)
+    }
+    
+    LSH(vectors.mapValues(_.data.toSeq), hashGroups)
   }
   
-  def hash(vectors: Map[Long, Seq[Double]]): LSH = hash(vectors, vectors.values.head.size, 10)
-  
-  def hash(filename: String): LSH = {
-    ???
+  def hash(
+    filename: String,
+    numOfHashGroups: Int,
+    maxLevel: Int,
+    bucketThreshold: Int
+  ): LSH = {
+    val vectors = Source.fromFile(filename).getLines.map(_.split(" ")).map { arr =>
+      val id = arr.head.toLong
+      val vector = arr.tail.map(_.toDouble).toSeq
+      id -> vector
+    }.toMap
+    hash(vectors, numOfHashGroups, maxLevel, bucketThreshold)
   }
+  
 }
