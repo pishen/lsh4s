@@ -75,7 +75,8 @@ object LSH extends Logging {
     inputVectors: Map[Long, Seq[Double]],
     outputPath: String,
     numOfHashGroups: Int,
-    maxLevel: Int
+    maxLevel: Int,
+    bucketThreshold: Int
   ): LSH = {
     val name = if(outputPath.startsWith("mem:")) "mem" else outputPath.split("/").last
     ConnectionPool.add(name, s"jdbc:h2:$outputPath", "sa", "")
@@ -138,7 +139,7 @@ object LSH extends Logging {
         randomVectors.map(r => (((v dot r) + randomShift) / sectionSize).floor.toInt).mkString(",")
       }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
       
-      val smallBuckets = allBuckets.filter(_._2.size <= 10000 || level == maxLevel)
+      val smallBuckets = allBuckets.filter(_._2.size <= bucketThreshold || level == maxLevel)
       log.info(s"# of buckets: ${smallBuckets.size}, largest bucket: ${smallBuckets.values.map(_.size).max}")
       
       log.info("inserting result")
@@ -150,7 +151,7 @@ object LSH extends Logging {
       }
       
       val remainVectors = {
-        val largeBucketVectorIds = allBuckets.filter(_._2.size > 10000).values.flatten.toSet
+        val largeBucketVectorIds = allBuckets.filter(_._2.size > bucketThreshold).values.flatten.toSet
         vectors.par.filterKeys(largeBucketVectorIds.contains).seq.toMap
       }
       if(remainVectors.nonEmpty) levelHash(groupId, level + 1, numOfRandomVectors + 2, remainVectors, sectionSize * 0.5)
@@ -167,14 +168,15 @@ object LSH extends Logging {
     filename: String,
     outputPath: String,
     numOfHashGroups: Int,
-    maxLevel: Int
+    maxLevel: Int,
+    bucketThreshold: Int
   ): LSH = {
     val vectors = Source.fromFile(filename).getLines.map(_.split(" ")).map { arr =>
       val id = arr.head.toLong
       val vector = arr.tail.map(_.toDouble).toSeq
       id -> vector
     }.toMap
-    hash(vectors, outputPath, numOfHashGroups, maxLevel)
+    hash(vectors, outputPath, numOfHashGroups, maxLevel, bucketThreshold)
   }
   
   def readLSH(inputPath: String) = new LSH(inputPath)
