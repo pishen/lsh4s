@@ -153,7 +153,7 @@ object LSH extends Logging {
         val largeBucketVectorIds = allBuckets.filter(_._2.size > 10000).values.flatten.toSet
         vectors.par.filterKeys(largeBucketVectorIds.contains).seq.toMap
       }
-      if(remainVectors.nonEmpty) levelHash(groupId, level + 1, numOfRandomVectors + 3, remainVectors, sectionSize * 0.5)
+      if(remainVectors.nonEmpty) levelHash(groupId, level + 1, numOfRandomVectors + 2, remainVectors, sectionSize * 0.5)
     }
     
     (1 to numOfHashGroups).foreach { groupId =>
