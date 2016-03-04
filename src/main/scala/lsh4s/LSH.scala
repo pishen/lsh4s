@@ -117,18 +117,18 @@ object LSH extends Logging {
     }
   
     val dimension = vectors.values.head.size
-    val numOfRandomVectors = dimension
     
     def levelHash(
       groupId: Int,
       level: Int,
+      numOfRandomVectors: Int,
       vectors: Map[Long, DenseVector[Double]],
       sectionSize: Double
     ): Unit = {
       val randomVectors = Seq.fill(numOfRandomVectors)(DenseVector.fill(dimension)(Random.nextDouble))
       val randomShift = Random.nextDouble * sectionSize
       
-      NamedDB(name).autoCommit { implicit session =>
+      NamedDB(name).localTx { implicit session =>
         val randomVectorsStr = randomVectors.map(_.data.mkString(",")).mkString("#")
         sql"INSERT INTO LEVEL_INFO VALUES (${groupId}, ${level}, ${randomVectorsStr}, ${randomShift})".update.apply()
       }
@@ -139,6 +139,7 @@ object LSH extends Logging {
       }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
       
       val smallBuckets = allBuckets.filter(_._2.size <= 10000 || level == maxLevel)
+      log.info(s"# of buckets: ${smallBuckets.size}, largest bucket: ${smallBuckets}")
       
       log.info("inserting result")
       NamedDB(name).autoCommit { implicit session =>
@@ -152,11 +153,11 @@ object LSH extends Logging {
         val largeBucketVectorIds = allBuckets.filter(_._2.size > 10000).values.flatten.toSet
         vectors.par.filterKeys(largeBucketVectorIds.contains).seq.toMap
       }
-      if(remainVectors.nonEmpty) levelHash(groupId, level + 1, remainVectors, sectionSize * 0.5)
+      if(remainVectors.nonEmpty) levelHash(groupId, level + 1, numOfRandomVectors + 3, remainVectors, sectionSize * 0.5)
     }
     
     (1 to numOfHashGroups).foreach { groupId =>
-      levelHash(groupId, 0, vectors, 0.5)
+      levelHash(groupId, 0, 3, vectors, 0.5)
     }
     
     new LSH(outputPath)
