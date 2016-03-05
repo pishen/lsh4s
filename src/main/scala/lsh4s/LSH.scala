@@ -74,7 +74,7 @@ object LSH extends Logging {
       wrappedVectors.mapValues(_ * scale)
     }
   
-    val dimension = vectors.values.head.size
+    val dimension = inputVectors.values.head.size
     
     def levelHash(
       hashes: Seq[Hash],
