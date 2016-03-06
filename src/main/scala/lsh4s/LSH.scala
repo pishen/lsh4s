@@ -167,7 +167,11 @@ object LSH extends Logging {
     val db = {
       val file = new File(inputPath)
       assert(!file.exists)
-      DBMaker.fileDB(file).closeOnJvmShutdown().make()
+      DBMaker.fileDB(file)
+        .fileMmapEnableIfSupported()
+        .fileMmapCleanerHackEnable()
+        .closeOnJvmShutdown()
+        .make()
     }
     new LSH(
       db.hashMap[Long, DenseVector[Double]]("vectors").asScala,
