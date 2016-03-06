@@ -109,8 +109,9 @@ object LSH extends Logging {
       if(remainVectors.nonEmpty) levelHash(group, level + 1, numOfRandomVectors + 2, sectionSize * 0.5, remainVectors)
     }
     
+    val initialSectionSize = vectors.values.map(v => norm(v)).max * 0.5
     (1 to numOfHashGroups).foreach { groupId =>
-      levelHash(groupId, 0, 3, 0.5, vectors)
+      levelHash(groupId, 0, 3, initialSectionSize, vectors)
     }
     
     if(outputPath == "mem"){
