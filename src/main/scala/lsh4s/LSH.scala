@@ -25,13 +25,13 @@ import scala.collection.JavaConverters._
 class LSH(db: DB) {
   val dbVectors = db.hashMap[Long, DenseVector[Double]]("vectors")
   val hashGroups = db.hashSet[Hash]("hashInfo").asScala.toSeq.groupBy(_.group).mapValues(_.sortBy(_.level))
-  val dbBuckets = db.hashMap[String, Seq[Long]]("buckets")
+  val dbBuckets = db.hashMap[String, Seq[Long]]("buckets").asScala
   
   def query(vector: DenseVector[Double], maxReturnSize: Int) = {
     val candidates = hashGroups.values.toSeq.flatMap { hashes =>
       hashes.flatMap { h =>
         val hashStr = h.randomVectors.map(r => (((vector dot r) + h.randomShift) / h.sectionSize).floor.toInt).mkString(",")
-        dbBuckets.get(s"${h.group},${h.level}#$hashStr")
+        dbBuckets.get(s"${h.group},${h.level}#$hashStr").getOrElse(Seq.empty)
       }
     }.distinct
     
@@ -58,16 +58,16 @@ object LSH extends Logging {
     outputPath: String
   ): LSH = {
     val db = {
-      if (outputPath == "mem") DBMaker.memoryDB() else {
+      if (outputPath == "mem") DBMaker.heapDB() else {
         val file = new File(outputPath)
         assert(!file.exists)
         DBMaker.fileDB(file)
       }
-    }.transactionDisable().make()
+    }.closeOnJvmShutdown().make()
     
     log.info("inserting vectors")
     val dbVectors = db.hashMap[Long, DenseVector[Double]]("vectors")
-    vectors.foreach {
+    vectors.toSeq.foreach {
       case (id, v) => dbVectors.put(id, v)
     }
     db.commit()
@@ -114,12 +114,7 @@ object LSH extends Logging {
       levelHash(groupId, 0, 3, initialSectionSize, vectors)
     }
     
-    if(outputPath == "mem"){
-      new LSH(db)
-    } else {
-      db.close()
-      new LSH(DBMaker.fileDB(new File(outputPath)).readOnly().make())
-    }
+    new LSH(db)
   }
 
   def hash(
