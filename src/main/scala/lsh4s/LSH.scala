@@ -34,8 +34,8 @@ class LSH(
     }.distinct
     
     candidates
-      .map(id => id -> vectors(id))
-      .sortBy { case (id, t) => norm(t - vector) }
+      .map(id => id -> norm(vectors(id) - vector))
+      .sortBy(_._2)
       .take(maxReturnSize)
       .map(_._1)
   }
