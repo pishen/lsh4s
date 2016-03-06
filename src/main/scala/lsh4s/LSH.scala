@@ -170,9 +170,9 @@ object LSH extends Logging {
       DBMaker.fileDB(file).closeOnJvmShutdown().make()
     }
     new LSH(
-      db.hashMap[Long, DenseVector[Double]]("vectors").asScala.toMap,
+      db.hashMap[Long, DenseVector[Double]]("vectors").asScala,
       db.hashSet[Hash]("hashInfo").asScala.toSeq,
-      db.hashMap[String, Seq[Long]]("buckets").asScala.toMap
+      db.hashMap[String, Seq[Long]]("buckets").asScala
     )
   }
 }
