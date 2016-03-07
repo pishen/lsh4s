@@ -19,10 +19,10 @@ val neighbors: Seq[Long] = lsh.query(itemId, maxReturnSize = 30)
 ```
 * The format of `./input_vectors` is `<item id> <vector>` for each line, here is an example:
 ```
-0 0.2 -1.5 0.3
-1 0.4 0.01 -0.5
-2 1.1 0.9 -0.1
-3 1.2 0.8 0.2
+3 0.2 -1.5 0.3
+5 0.4 0.01 -0.5
+0 1.1 0.9 -0.1
+2 1.2 0.8 0.2
 ```
 * All the hash groups will be combined in the end to find the neighbors, larger `numOfHashGroups` will produce a more accurate model, but takes more memory when hashing.
 * Larger `bucketSize` will produce a more accurate model as well, but takes more time when finding neighbors.
