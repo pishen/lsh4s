@@ -28,14 +28,19 @@ class LSH(
   buckets: collection.Map[String, Seq[Long]]
 ) {
   def query(vector: DenseVector[Double], maxReturnSize: Int) = {
-    val candidates = hashInfo.flatMap { h =>
-      val hashStr = h.randomVectors.map(r => (((vector dot r) + h.randomShift) / h.sectionSize).floor.toInt).mkString(",")
-      buckets.get(s"${h.group},${h.level}#$hashStr").getOrElse(Seq.empty)
-    }.distinct
-    
-    candidates
+    hashInfo
+      .flatMap { h =>
+        val hashStr = h.randomVectors.map(r => (((vector dot r) + h.randomShift) / h.sectionSize).floor.toInt).mkString(",")
+        buckets.get(s"${h.group},${h.level}#$hashStr").getOrElse(Seq.empty)
+      }
+      .distinct
       .map(id => id -> norm(vectors(id) - vector))
-      .sortBy(_._2)
+      .foldLeft(Map.empty[Long, Double]){ (b, a) =>
+        val b2 = b + a
+        val maxId = b2.maxBy(_._2)._1
+        b2 - maxId
+      }
+      .toSeq
       .take(maxReturnSize)
       .map(_._1)
   }
