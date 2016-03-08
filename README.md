@@ -3,7 +3,7 @@
 ## Usage
 Add the dependency
 ```
-libraryDependencies += "net.pishen" %% "lsh4s" % "0.1.0"
+libraryDependencies += "net.pishen" %% "lsh4s" % "0.2.0"
 ```
 Add the resolver
 ```
@@ -13,7 +13,7 @@ Hash the vectors (the whole hashing process will run in memory, you may need to 
 ```
 import lsh4s._
 
-val lsh = LSH.hash("./input_vectors", numOfHashGroups = 10, maxLevel = 5, bucketSize = 10000, outputPath = "mem")
+val lsh = LSH.hash("./input_vectors", numOfHashGroups = 10, bucketSize = 10000, outputPath = "mem")
 
 val neighbors: Seq[Long] = lsh.query(itemId, maxReturnSize = 30)
 ```
@@ -26,7 +26,6 @@ val neighbors: Seq[Long] = lsh.query(itemId, maxReturnSize = 30)
 ```
 * All the hash groups will be combined in the end to find the neighbors, larger `numOfHashGroups` will produce a more accurate model, but takes more memory when hashing.
 * Larger `bucketSize` will produce a more accurate model as well, but takes more time when finding neighbors.
-* `maxLevel` defines the stopping level in a single hash group. Usually you don't need to adjust this value, but give it a larger value if your distances between vectors varies a lot.
 * `outputPath = "mem"` is for memory mode, otherwise it will be the output file for LSH model (we recommend pointing this file to an empty directory, since we will create and delete several intermediate files around it.)
 
 lsh4s uses slf4j, remember to add your own backend to see the log. For example, to print the log on screen, add
@@ -37,3 +36,12 @@ libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.14"
 ## Benchmark
 * disk-mode 3.63q/s
 * memory-mode 15q/s
+
+* 10 groups, bucketSize = 10000, 1000 queries, P@100 = 0.17189
+* 10 groups, bucketSize = 10000, 100 queries, P@10 = 0.233
+* 20 groups, bucketSize = 10000, 100 queries, P@10 = 0.373
+* 50 groups, bucketSize = 3000, 100 queries, P@10 = 0.349
+* annoy, 128 trees, 100 queries, P@10 = 0.737, building time = 6mins
+* lsh4s 100 groups, bucketSize = 10000, 100 queries, P@10 = 0.626, building time = 5mins
+* lsh4s 200 groups, bucketSize = 10000, 100 queries, P@10 = 0.679
+* lsh4s 100 groups, bucketSize = 50000, 100 queries, P@10 = 0.826

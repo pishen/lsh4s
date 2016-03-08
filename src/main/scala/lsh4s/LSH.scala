@@ -28,20 +28,27 @@ class LSH(
   buckets: collection.Map[String, Seq[Long]]
 ) {
   def query(vector: DenseVector[Double], maxReturnSize: Int) = {
-    val candidates = hashInfo.flatMap { h =>
-      val hashStr = h.randomVectors.map(r => (((vector dot r) + h.randomShift) / h.sectionSize).floor.toInt).mkString(",")
-      buckets.get(s"${h.group},${h.level}#$hashStr").getOrElse(Seq.empty)
-    }.distinct
-    
-    candidates
+    hashInfo
+      .flatMap { h =>
+        val hashStr = h.randomVectors.map(r => (((vector dot r) + h.randomShift) / h.sectionSize).floor.toInt).mkString(",")
+        buckets.get(s"${h.group},${h.level}#$hashStr").getOrElse(Seq.empty)
+      }
+      .distinct
       .map(id => id -> norm(vectors(id) - vector))
+      .foldLeft(Map.empty[Long, Double]){ (b, a) =>
+        val b2 = b + a
+        if(b2.size <= maxReturnSize) b2 else {
+          val maxId = b2.maxBy(_._2)._1
+          b2 - maxId
+        }
+      }
+      .toSeq
       .sortBy(_._2)
-      .take(maxReturnSize)
       .map(_._1)
   }
   
   def query(id: Long, maxReturnSize: Int): Seq[Long] = {
-    query(vectors(id), maxReturnSize)
+    query(vectors(id), maxReturnSize + 1).filterNot(_ == id) //don't return the query itself
   }
 }
 
@@ -51,7 +58,6 @@ object LSH extends Logging {
   def hash(
     vectors: Map[Long, DenseVector[Double]],
     numOfHashGroups: Int,
-    maxLevel: Int,
     bucketSize: Int,
     outputPath: String
   ): LSH = {
@@ -76,8 +82,8 @@ object LSH extends Logging {
         s"$group,$level#$hashStr"
       }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
       
-      val smallBuckets = allBuckets.filter(_._2.size <= bucketSize || level == maxLevel)
-      log.info(s"result of group $group level $level: # of buckets: ${smallBuckets.size}, largest bucket: ${smallBuckets.values.map(_.size).max}")
+      val smallBuckets = allBuckets.filter(_._2.size <= bucketSize || level == 10)
+      log.info(s"group $group level $level: # of buckets: ${smallBuckets.size}, largest bucket: ${smallBuckets.values.map(_.size).max}")
       
       val remainVectors = {
         val largeBucketVectorIds = allBuckets.filter(_._2.size > bucketSize).values.flatten.toSet
@@ -151,7 +157,6 @@ object LSH extends Logging {
   def hash(
     filename: String,
     numOfHashGroups: Int,
-    maxLevel: Int,
     bucketSize: Int,
     outputPath: String
   ): LSH = {
@@ -160,7 +165,7 @@ object LSH extends Logging {
       val vector = DenseVector(arr.tail.map(_.toDouble))
       id -> vector
     }.toMap
-    hash(vectors, numOfHashGroups, maxLevel, bucketSize, outputPath)
+    hash(vectors, numOfHashGroups, bucketSize, outputPath)
   }
   
   def readLSH(inputPath: String) = {
