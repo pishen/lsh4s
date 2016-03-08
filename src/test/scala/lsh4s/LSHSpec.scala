@@ -8,7 +8,7 @@ import org.slf4s.Logging
 
 class LSHSpec extends FlatSpec with Logging {
   "LSH" should "have proper precisions" in {
-    val vectors = Source.fromFile("input_vector").getLines.map(_.split(" ")).map { arr =>
+    val vectors = Source.fromFile("input_vectors").getLines.map(_.split(" ")).map { arr =>
       val id = arr.head.toLong
       val vector = DenseVector(arr.tail.map(_.toDouble))
       id -> vector

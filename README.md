@@ -37,3 +37,8 @@ libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.14"
 ## Benchmark
 * disk-mode 3.63q/s
 * memory-mode 15q/s
+
+* 10 groups, bucketSize = 10000, 1000 queries, P@100 = 0.17189
+* 10 groups, bucketSize = 10000, 100 queries, P@10 = 0.233
+* 20 groups, bucketSize = 10000, 100 queries, P@10 = 0.373
+* 50 groups, bucketSize = 3000, 100 queries, P@10 = 0.349
