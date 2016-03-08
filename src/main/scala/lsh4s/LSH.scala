@@ -95,8 +95,8 @@ object LSH extends Logging {
           currentBuckets ++ smallBuckets,
           group,
           level + 1,
-          numOfRandomVectors + 2,
-          sectionSize * 0.5,
+          numOfRandomVectors + 3,
+          sectionSize * 0.9,
           remainVectors
         )
       } else {
