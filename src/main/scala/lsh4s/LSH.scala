@@ -26,7 +26,7 @@ class LSH(
   vectors: collection.Map[Long, DenseVector[Double]],
   hashInfo: Seq[Hash],
   buckets: collection.Map[String, Seq[Long]]
-) {
+) extends Serializable {
   def query(vector: DenseVector[Double], maxReturnSize: Int) = {
     hashInfo
       .flatMap { h =>
@@ -74,7 +74,7 @@ object LSH extends Logging {
       sectionSize: Double,
       vectors: Map[Long, DenseVector[Double]]
     ): (Seq[Hash], Map[String, Seq[Long]]) = {
-      val randomVectors = Seq.fill(numOfRandomVectors)(DenseVector.fill(dimension)(Random.nextDouble))
+      val randomVectors = Seq.fill(numOfRandomVectors)(DenseVector.fill(dimension)(Random.nextDouble - 0.5))
       val randomShift = Random.nextDouble * sectionSize
       
       val allBuckets = vectors.mapValues { v =>
@@ -82,7 +82,7 @@ object LSH extends Logging {
         s"$group,$level#$hashStr"
       }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
       
-      val smallBuckets = allBuckets.filter(_._2.size <= bucketSize || level == 10)
+      val smallBuckets = allBuckets.filter(_._2.size <= bucketSize || level == 20)
       log.info(s"group $group level $level: # of buckets: ${smallBuckets.size}, largest bucket: ${smallBuckets.values.map(_.size).max}")
       
       val remainVectors = {
@@ -95,8 +95,8 @@ object LSH extends Logging {
           currentBuckets ++ smallBuckets,
           group,
           level + 1,
-          numOfRandomVectors + 2,
-          sectionSize * 0.5,
+          numOfRandomVectors + 3,
+          sectionSize * 0.9,
           remainVectors
         )
       } else {

@@ -1,7 +1,7 @@
 lazy val root = (project in file("."))
   .settings(
     name := "lsh4s",
-    version := "0.2.1",
+    version := "0.3.0",
     scalaVersion := "2.11.7",
     crossScalaVersions := Seq("2.10.6", "2.11.7"),
     libraryDependencies ++= Seq(
@@ -9,7 +9,8 @@ lazy val root = (project in file("."))
       "org.mapdb" % "mapdb" % "2.0-beta13",
       "org.scalanlp" %% "breeze" % "0.11.2",
       "org.scalatest" %% "scalatest" % "2.2.6" % "test",
-      "org.slf4j" % "slf4j-simple" % "1.7.14" % "test"
+      "org.slf4j" % "slf4j-simple" % "1.7.14" % "test",
+      "org.scalaj" %% "scalaj-http" % "2.2.1" % "test"
     ),
     organization := "net.pishen",
     licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html")),
