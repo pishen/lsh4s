@@ -26,7 +26,7 @@ class LSH(
   vectors: collection.Map[Long, DenseVector[Double]],
   hashInfo: Seq[Hash],
   buckets: collection.Map[String, Seq[Long]]
-) {
+) extends Serializable {
   def query(vector: DenseVector[Double], maxReturnSize: Int) = {
     hashInfo
       .flatMap { h =>
@@ -82,7 +82,7 @@ object LSH extends Logging {
         s"$group,$level#$hashStr"
       }.toSeq.groupBy(_._2).mapValues(_.map(_._1))
       
-      val smallBuckets = allBuckets.filter(_._2.size <= bucketSize || level == 10)
+      val smallBuckets = allBuckets.filter(_._2.size <= bucketSize || level == 20)
       log.info(s"group $group level $level: # of buckets: ${smallBuckets.size}, largest bucket: ${smallBuckets.values.map(_.size).max}")
       
       val remainVectors = {
