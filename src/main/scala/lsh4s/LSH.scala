@@ -74,7 +74,7 @@ object LSH extends Logging {
       sectionSize: Double,
       vectors: Map[Long, DenseVector[Double]]
     ): (Seq[Hash], Map[String, Seq[Long]]) = {
-      val randomVectors = Seq.fill(numOfRandomVectors)(DenseVector.fill(dimension)(Random.nextDouble))
+      val randomVectors = Seq.fill(numOfRandomVectors)(DenseVector.fill(dimension)(Random.nextDouble - 0.5))
       val randomShift = Random.nextDouble * sectionSize
       
       val allBuckets = vectors.mapValues { v =>
