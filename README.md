@@ -3,7 +3,7 @@
 ## Usage
 Add the dependency
 ```
-libraryDependencies += "net.pishen" %% "lsh4s" % "0.2.1"
+libraryDependencies += "net.pishen" %% "lsh4s" % "0.3.0"
 ```
 Add the resolver
 ```
@@ -37,6 +37,10 @@ libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.14"
 * disk-mode 3.63q/s
 * memory-mode 15q/s
 
+### New
+* 10 groups, bucketSize = 10000, 100 queries, P@10 = 0.557
+
+### Old
 * 10 groups, bucketSize = 10000, 1000 queries, P@100 = 0.17189
 * 10 groups, bucketSize = 10000, 100 queries, P@10 = 0.233
 * 20 groups, bucketSize = 10000, 100 queries, P@10 = 0.373
