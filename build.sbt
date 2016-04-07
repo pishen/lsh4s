@@ -1,9 +1,9 @@
 lazy val root = (project in file("."))
   .settings(
     name := "lsh4s",
-    version := "0.3.0",
+    version := "0.4.0",
     scalaVersion := "2.11.7",
-    crossScalaVersions := Seq("2.10.6", "2.11.7"),
+    crossScalaVersions := Seq("2.10.6", "2.11.8"),
     libraryDependencies ++= Seq(
       "org.slf4s" %% "slf4s-api" % "1.7.12",
       "org.mapdb" % "mapdb" % "2.0-beta13",

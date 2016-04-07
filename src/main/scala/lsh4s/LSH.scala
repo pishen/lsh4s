@@ -43,16 +43,17 @@ class LSH(
         }
       }
       .toSeq
-      .sortBy(_._2)
-      .map(_._1)
+      .map { case (id, distance) => QueryResult(id, distance) }
+      .sortBy(_.distance)
   }
   
-  def query(id: Long, maxReturnSize: Int): Seq[Long] = {
-    query(vectors(id), maxReturnSize + 1).filterNot(_ == id) //don't return the query itself
+  def query(id: Long, maxReturnSize: Int): Seq[QueryResult] = {
+    query(vectors(id), maxReturnSize + 1).filterNot(_.id == id) //don't return the query itself
   }
 }
 
 case class Hash(group: Int, level: Int, randomVectors: Seq[DenseVector[Double]], randomShift: Double, sectionSize: Double)
+case class QueryResult(id: Long, distance: Double)
 
 object LSH extends Logging {
   def hash(

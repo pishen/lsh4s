@@ -3,7 +3,7 @@
 ## Usage
 Add the dependency
 ```
-libraryDependencies += "net.pishen" %% "lsh4s" % "0.3.0"
+libraryDependencies += "net.pishen" %% "lsh4s" % "0.4.0"
 ```
 Add the resolver
 ```
@@ -15,7 +15,7 @@ import lsh4s._
 
 val lsh = LSH.hash("./input_vectors", numOfHashGroups = 10, bucketSize = 10000, outputPath = "mem")
 
-val neighbors: Seq[Long] = lsh.query(itemId, maxReturnSize = 30)
+val neighbors: Seq[Long] = lsh.query(itemId, maxReturnSize = 30).map(_.id)
 ```
 * The format of `./input_vectors` is `<item id> <vector>` for each line, here is an example:
 ```
