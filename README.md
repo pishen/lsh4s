@@ -3,7 +3,7 @@
 ## Usage
 Add the dependency
 ```
-libraryDependencies += "net.pishen" %% "lsh4s" % "0.4.0"
+libraryDependencies += "net.pishen" %% "lsh4s" % "0.4.1"
 ```
 Add the resolver
 ```
