@@ -137,8 +137,8 @@ object LSH extends Logging {
       }
       db.commit()
 
-      val dbHashInfo = db.hashSet[Hash]("hashInfo")
-      hashInfo.foreach(h => dbHashInfo.add(h))
+      val dbHashInfo = db.hashMap[Int, Hash]("hashInfo")
+      hashInfo.zipWithIndex.foreach { case (h, i) => dbHashInfo.put(i, h) }
       db.commit()
 
       log.info("inserting buckets")
@@ -150,7 +150,7 @@ object LSH extends Logging {
 
       new LSH(
         dbVectors.asScala,
-        dbHashInfo.asScala.toSeq,
+        hashInfo,
         dbBuckets.asScala
       )
     }
@@ -182,7 +182,7 @@ object LSH extends Logging {
     }
     new LSH(
       db.hashMap[Long, DenseVector[Double]]("vectors").asScala,
-      db.hashSet[Hash]("hashInfo").asScala.toSeq,
+      db.hashMap[Int, Hash]("hashInfo").asScala.values.toSeq,
       db.hashMap[String, Seq[Long]]("buckets").asScala
     )
   }
