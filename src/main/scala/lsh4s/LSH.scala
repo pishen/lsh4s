@@ -173,7 +173,7 @@ object LSH extends Logging {
   def readLSH(inputPath: String) = {
     val db = {
       val file = new File(inputPath)
-      assert(!file.exists)
+      assert(file.exists)
       DBMaker.fileDB(file)
         .fileMmapEnableIfSupported()
         .fileMmapCleanerHackEnable()
