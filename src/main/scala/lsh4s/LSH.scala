@@ -23,10 +23,13 @@ import java.io.File
 import scala.collection.JavaConverters._
 
 class LSH(
+  dbOpt: Option[DB],
   vectors: collection.Map[Long, DenseVector[Double]],
   hashInfo: Seq[Hash],
   buckets: collection.Map[String, Seq[Long]]
 ) extends Serializable {
+  def close() = dbOpt.foreach(_.close())
+  
   def query(vector: DenseVector[Double], maxReturnSize: Int) = {
     hashInfo
       .flatMap { h =>
@@ -47,8 +50,10 @@ class LSH(
       .sortBy(_.distance)
   }
 
-  def query(id: Long, maxReturnSize: Int): Seq[QueryResult] = {
-    query(vectors(id), maxReturnSize + 1).filterNot(_.id == id) //don't return the query itself
+  def query(id: Long, maxReturnSize: Int): Option[Seq[QueryResult]] = {
+    vectors.get(id).map { v =>
+      query(v, maxReturnSize + 1).filterNot(_.id == id) //don't return the query itself
+    }
   }
 }
 
@@ -118,7 +123,7 @@ object LSH extends Logging {
     }
 
     if (memoryMode) {
-      new LSH(vectors, hashInfo, buckets)
+      new LSH(None, vectors, hashInfo, buckets)
     } else {
       val db = {
         val file = new File(outputPath)
@@ -149,6 +154,7 @@ object LSH extends Logging {
       db.commit()
 
       new LSH(
+        Some(db),
         dbVectors.asScala,
         hashInfo,
         dbBuckets.asScala
@@ -181,6 +187,7 @@ object LSH extends Logging {
         .make()
     }
     new LSH(
+      Some(db),
       db.hashMap[Long, DenseVector[Double]]("vectors").asScala,
       db.hashMap[Int, Hash]("hashInfo").asScala.values.toSeq,
       db.hashMap[String, Seq[Long]]("buckets").asScala
