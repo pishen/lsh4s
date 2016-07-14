@@ -1,9 +1,10 @@
 # lsh4s
+[![Build Status](https://travis-ci.org/pishen/lsh4s.svg?branch=master)](https://travis-ci.org/pishen/lsh4s)
 
 ## Usage
 Add the dependency
 ```
-libraryDependencies += "net.pishen" %% "lsh4s" % "0.4.2"
+libraryDependencies += "net.pishen" %% "lsh4s" % "0.5.0"
 ```
 Add the resolver
 ```
@@ -15,7 +16,7 @@ import lsh4s._
 
 val lsh = LSH.hash("./input_vectors", numOfHashGroups = 10, bucketSize = 10000, outputPath = "mem")
 
-val neighbors: Seq[Long] = lsh.query(itemId, maxReturnSize = 30).map(_.id)
+val neighbors: Seq[Long] = lsh.query(itemId, maxReturnSize = 30).get.map(_.id)
 ```
 * The format of `./input_vectors` is `<item id> <vector>` for each line, here is an example:
 ```
@@ -32,20 +33,3 @@ lsh4s uses slf4j, remember to add your own backend to see the log. For example, 
 ```
 libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.14"
 ```
-
-## Benchmark
-* disk-mode 3.63q/s
-* memory-mode 15q/s
-
-### New
-* 10 groups, bucketSize = 10000, 100 queries, P@10 = 0.557
-
-### Old
-* 10 groups, bucketSize = 10000, 1000 queries, P@100 = 0.17189
-* 10 groups, bucketSize = 10000, 100 queries, P@10 = 0.233
-* 20 groups, bucketSize = 10000, 100 queries, P@10 = 0.373
-* 50 groups, bucketSize = 3000, 100 queries, P@10 = 0.349
-* annoy, 128 trees, 100 queries, P@10 = 0.737, building time = 6mins
-* lsh4s 100 groups, bucketSize = 10000, 100 queries, P@10 = 0.626, building time = 5mins
-* lsh4s 200 groups, bucketSize = 10000, 100 queries, P@10 = 0.679
-* lsh4s 100 groups, bucketSize = 50000, 100 queries, P@10 = 0.826
