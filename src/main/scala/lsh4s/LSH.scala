@@ -21,6 +21,7 @@ import scala.io.Source
 import org.mapdb._
 import java.io.File
 import scala.collection.JavaConverters._
+import scala.collection.mutable.PriorityQueue
 
 class LSH(
   dbOpt: Option[DB],
@@ -38,11 +39,11 @@ class LSH(
       }
       .distinct
       .map(id => id -> norm(vectors(id) - vector))
-      .foldLeft(Map.empty[Long, Double]) { (b, a) =>
-        val b2 = b + a
-        if (b2.size <= maxReturnSize) b2 else {
-          val maxId = b2.maxBy(_._2)._1
-          b2 - maxId
+      .foldLeft(PriorityQueue.empty[(Long, Double)](Ordering.by[(Long, Double), Double](_._2))) { (b, a) =>
+        b += a
+        if (b.size <= maxReturnSize) b else {
+          b.dequeue()
+          b
         }
       }
       .toSeq
